@@ -1,0 +1,22 @@
+{
+  "name": "berqiqch-portfolio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static portfolio for Yassine Berqiqch — S3 + CloudFront, contact form on Lambda + SES.",
+  "type": "module",
+  "scripts": {
+    "dev": "node build.mjs --watch",
+    "build": "node build.mjs",
+    "build:site": "node build.mjs --site-only",
+    "build:lambda": "node build.mjs --lambda-only",
+    "test": "node lambda/contact/test.mjs",
+    "fonts": "node scripts/fetch-fonts.mjs"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-sesv2": "^3.700.0",
+    "esbuild": "^0.25.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

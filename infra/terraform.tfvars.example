@@ -1,0 +1,39 @@
+# Copy to terraform.tfvars and adjust. terraform.tfvars is gitignored.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+
+project = "berqiqch-portfolio"
+region  = "eu-central-1"
+
+# --- contact form ---------------------------------------------------------
+
+mail_to   = "yassine.berqiqch@gmail.com"
+mail_from = "yassine.berqiqch@gmail.com"
+
+# Keep false until AWS grants SES production access: the sandbox refuses to
+# deliver to unverified recipients, which is every visitor.
+auto_reply = false
+
+# Verify the domain so mail is DKIM-signed instead of failing DMARC alignment.
+# Terraform outputs the three CNAMEs to create (terraform output ses_dkim_records).
+ses_domain = "berqiqch.de"
+
+# Leave mail_from on the Gmail identity until the line above reports verified.
+# SES rejects sends from an unverified identity, so switching early breaks the
+# form. Afterwards: mail_from = "noreply@berqiqch.de"
+
+# --- CI/CD ----------------------------------------------------------------
+
+# Set once the repository exists to create the OIDC deploy role.
+# github_repository = "aperskii/portfolio"
+# github_branch     = "main"
+
+# The account already has an OIDC provider for GitHub? Set this to false.
+# create_github_oidc_provider = true
+
+# --- custom domain --------------------------------------------------------
+
+# Currently unused. berqiqch.de still answers on checkdomain.de nameservers.
+# Once its zone is live in Route 53, switch this on and create the ACM
+# validation records there. See DEPLOY.md.
+# domain_names = ["berqiqch.de", "www.berqiqch.de"]

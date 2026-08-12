@@ -1,0 +1,34 @@
+# build output
+dist/
+build/
+
+# dependencies
+node_modules/
+
+# terraform
+# .terraform.lock.hcl is intentionally NOT ignored — committing it pins provider
+# versions so every machine and CI run resolves the same ones.
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# never commit these: tfvars and tfplan files can contain real values
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+*.tfplan
+tfplan
+
+# credentials
+.env
+.env.*
+*.pem
+.aws/
+
+# editors / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
