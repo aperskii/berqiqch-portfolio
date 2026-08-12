@@ -34,8 +34,7 @@ npm run dev           # rebuild dist/ on change
 npm run fonts         # re-download font subsets
 ```
 
-To preview, serve `dist/` over HTTP rather than opening the file directly —
-`file://` breaks the font paths and the module scope:
+Preview over HTTP, not `file://` — that breaks the font paths:
 
 ```bash
 npx serve dist        # or: python -m http.server -d dist 8000
@@ -71,14 +70,10 @@ field catches naive bots; API Gateway throttling caps the rest.
 **CORS is handled in the function, not by API Gateway.** Enabling both makes
 each append its own `Access-Control-Allow-Origin`, and browsers reject the
 duplicate. Keeping it in the handler also means it works unchanged behind a
-Lambda Function URL.
-
-`ALLOWED_ORIGINS` holds a list, because the site answers on both
-`www.berqiqch.de` and the CloudFront domain and the form has to work on either.
-The handler echoes back whichever listed origin called it and sets
-`Vary: Origin`; a browser will not accept a list in one header. Matching is exact
-string equality, so a lookalike such as `https://www.berqiqch.de.evil.example`
-is rejected.
+Lambda Function URL. `ALLOWED_ORIGINS` is a list because the site answers on
+both the custom domain and the CloudFront one; the handler echoes back whichever
+listed origin called it and sets `Vary: Origin`. Matching is exact string
+equality, so `https://www.berqiqch.de.evil.example` does not slip through.
 
 ## Licence
 

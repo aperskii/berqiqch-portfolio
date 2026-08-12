@@ -229,10 +229,10 @@ empty and the build fails its own guard step.
 
 | Kind     | Name                         | Value |
 | -------- | ---------------------------- | ----- |
-| Secret   | `AWS_DEPLOY_ROLE_ARN`        | `arn:aws:iam::090173136382:role/berqiqch-portfolio-github-deploy` |
-| Secret   | `S3_BUCKET`                  | `berqiqch-portfolio-site-89ceca57` |
-| Secret   | `CLOUDFRONT_DISTRIBUTION_ID` | `E1RFXULQQLZURN` |
-| Variable | `CONTACT_ENDPOINT`           | `https://rq6lon2gx0.execute-api.eu-central-1.amazonaws.com/contact` |
+| Secret   | `AWS_DEPLOY_ROLE_ARN`        | `arn:aws:iam::<ACCOUNT_ID>:role/berqiqch-portfolio-github-deploy` |
+| Secret   | `S3_BUCKET`                  | `<BUCKET_NAME>` |
+| Secret   | `CLOUDFRONT_DISTRIBUTION_ID` | `<DISTRIBUTION_ID>` |
+| Variable | `CONTACT_ENDPOINT`           | `https://<API_ID>.execute-api.eu-central-1.amazonaws.com/contact` |
 
 Re-read them any time:
 
@@ -254,7 +254,7 @@ The trust policy accepts **both** spellings of the OIDC subject:
 
 ```
 repo:aperskii/berqiqch-portfolio:ref:refs/heads/main
-repo:aperskii@101721381/berqiqch-portfolio@1332172797:ref:refs/heads/main
+repo:<OWNER>@<OWNER_ID>/<REPO>@<REPO_ID>:ref:refs/heads/main
 ```
 
 This account issues the second form, which embeds immutable numeric ids for the
@@ -322,9 +322,12 @@ automatically — if it does, enter only the part before `.berqiqch.de`.
 
 | Purpose | Type | Name | Value |
 | ------- | ---- | ---- | ----- |
-| ACM validation (apex) | CNAME | `_2a678419f6473e7ff04819834e94751a.berqiqch.de.` | `_b0f4ca540cf3f48e1f2d43882f6796c3.jkddzztszm.acm-validations.aws.` |
-| ACM validation (www) | CNAME | `_7871f3f92aae2b9ef24e383f27534804.www.berqiqch.de.` | `_76c275b699add719bcdc6879a412d622.jkddzztszm.acm-validations.aws.` |
-| Site host | CNAME | `www.berqiqch.de` | `djypb1s1v2jna.cloudfront.net` |
+| ACM validation (apex) | CNAME | `_<hash>.berqiqch.de.` | `_<hash>.<id>.acm-validations.aws.` |
+| ACM validation (www) | CNAME | `_<hash>.www.berqiqch.de.` | `_<hash>.<id>.acm-validations.aws.` |
+| Site host | CNAME | `www.berqiqch.de` | `<DISTRIBUTION_DOMAIN>.cloudfront.net` |
+
+The two validation rows are per-certificate; take the real values from
+`terraform output -json acm_validation_records` rather than from this table.
 
 Validation CNAMEs must stay in place permanently — ACM re-checks them on
 renewal, and removing them eventually breaks the certificate.
@@ -340,7 +343,7 @@ not. Options at checkdomain, best first:
    `https://www.berqiqch.de`. This is why `www` is first in `domain_names` and
    why the site's `canonical` is `https://www.berqiqch.de/`.
 2. **An `ALIAS`/`ANAME` record**, if checkdomain offers one — then point the apex
-   at `djypb1s1v2jna.cloudfront.net` directly.
+   at `<DISTRIBUTION_DOMAIN>.cloudfront.net` directly.
 
 The apex is on the certificate either way, so option 2 works whenever you find it
 available.
@@ -381,7 +384,7 @@ terraform output -json allowed_origins
 populates it with the custom domain, the apex, **and** the CloudFront domain:
 
 ```
-https://www.berqiqch.de,https://berqiqch.de,https://djypb1s1v2jna.cloudfront.net
+https://www.berqiqch.de,https://berqiqch.de,https://<DISTRIBUTION_DOMAIN>.cloudfront.net
 ```
 
 The CloudFront domain stays on the list deliberately. Attaching a custom domain

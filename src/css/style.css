@@ -422,24 +422,57 @@ h3 { font-size: 1.1rem; }
 .skill-card:hover { border-color: var(--line-hi); background-color: var(--surface-hi); }
 
 .skill-card h3 {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
   color: var(--text);
   padding-bottom: .9rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
   border-bottom: 1px solid var(--line);
 }
+
+.skill-icon {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  flex: none;
+  border: 1px solid var(--line-hi);
+  border-radius: 8px;
+  color: var(--accent);
+  transition: border-color .2s var(--ease), background-color .2s var(--ease);
+}
+
+.skill-icon .icon { width: 1rem; height: 1rem; }
+
+.skill-card:hover .skill-icon {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+/* --- tag pills ------------------------------------------------------------ */
 
 .tags { display: flex; flex-wrap: wrap; gap: .45rem; }
 
 .tags li {
-  padding: .3rem .7rem;
+  padding: .32rem .75rem;
   font-size: .82rem;
+  line-height: 1.5;
   color: var(--text-dim);
-  background-color: rgba(148, 163, 184, .07);
+  background-color: rgba(148, 163, 184, .06);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 999px;
+  transition: color .18s var(--ease), border-color .18s var(--ease),
+              background-color .18s var(--ease);
 }
 
-.tags-sm li { font-size: .76rem; padding: .22rem .55rem; }
+.tags li:hover {
+  color: var(--accent-hi);
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+.tags-sm li { font-size: .76rem; padding: .24rem .62rem; }
 
 /* --- experience & education ---------------------------------------------- */
 
@@ -542,6 +575,31 @@ h3 { font-size: 1.1rem; }
 .project-card:hover { border-color: var(--line-hi); transform: translateY(-3px); }
 .project-card p { margin-top: .7rem; font-size: .93rem; color: var(--text-dim); }
 .project-card .tags { margin-top: 1.1rem; }
+
+/* The featured card spans the row on wide screens; its write-up is longer than
+   the others and reads badly squeezed into a third of the width. */
+.project-card-featured {
+  grid-column: 1 / -1;
+  border-color: var(--line-hi);
+}
+
+.project-card-featured .project-body { max-width: 68ch; }
+
+/* Scoped past `.project-card p`, which is more specific than a bare class and
+   would otherwise reset the colour and size below. */
+.project-card .project-flag {
+  display: inline-block;
+  margin: 0 0 .7rem;
+  padding: .18rem .6rem;
+  font-family: var(--font-head);
+  font-size: .68rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background-color: var(--accent-soft);
+  border-radius: 999px;
+}
 
 .project-link {
   display: inline-flex;

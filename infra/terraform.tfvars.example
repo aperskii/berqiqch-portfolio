@@ -33,8 +33,8 @@ github_branch     = "main"
 # one does, and a trust policy matching only names is denied. Get the ids with:
 #   curl -s https://api.github.com/repos/<owner>/<name> | jq '.owner.id, .id'
 # Leave empty if your account issues the name form. See DEPLOY.md section 6.
-github_owner_id      = "101721381"
-github_repository_id = "1332172797"
+github_owner_id      = "<OWNER_ID>"
+github_repository_id = "<REPO_ID>"
 
 # This account already has a GitHub OIDC provider, and AWS allows only one per
 # issuer URL, so reference it rather than creating a second.
