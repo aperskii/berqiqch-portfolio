@@ -60,3 +60,26 @@ output "acm_validation_records" {
     }
   ] : []
 }
+
+# What the site names should point at once the certificate is attached. The apex
+# cannot be a CNAME, so at a registrar without ALIAS support it needs a redirect
+# to the www host rather than a record of its own.
+output "cloudfront_alias_target" {
+  description = "CNAME target for the site's hostnames."
+  value       = aws_cloudfront_distribution.site.domain_name
+}
+
+output "custom_domain_attached" {
+  description = "Whether CloudFront is currently serving domain_names."
+  value       = local.attach_domain
+}
+
+output "allowed_origins" {
+  description = "Origins the contact form accepts, canonical first."
+  value       = local.allowed_origins
+}
+
+output "acm_certificate_arn" {
+  description = "The site certificate, for checking issuance status."
+  value       = local.create_certificate ? aws_acm_certificate.site[0].arn : var.acm_certificate_arn
+}

@@ -19,12 +19,6 @@
 
 locals {
   verify_domain = var.ses_domain != ""
-
-  ses_identity_arns = concat(
-    [aws_sesv2_email_identity.owner.arn],
-    aws_sesv2_email_identity.sender[*].arn,
-    aws_sesv2_email_identity.domain[*].arn,
-  )
 }
 
 resource "aws_sesv2_email_identity" "owner" {

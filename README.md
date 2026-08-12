@@ -73,6 +73,13 @@ each append its own `Access-Control-Allow-Origin`, and browsers reject the
 duplicate. Keeping it in the handler also means it works unchanged behind a
 Lambda Function URL.
 
+`ALLOWED_ORIGINS` holds a list, because the site answers on both
+`www.berqiqch.de` and the CloudFront domain and the form has to work on either.
+The handler echoes back whichever listed origin called it and sets
+`Vary: Origin`; a browser will not accept a list in one header. Matching is exact
+string equality, so a lookalike such as `https://www.berqiqch.de.evil.example`
+is rejected.
+
 ## Licence
 
 Source is free to read and learn from. The CV, certificates, photographs and

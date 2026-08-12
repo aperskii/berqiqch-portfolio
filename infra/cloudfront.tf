@@ -1,8 +1,24 @@
 locals {
-  use_custom_domain = length(var.domain_names) > 0
+  # A certificate is wanted.
+  has_domains = length(var.domain_names) > 0
 
-  # Origin the browser sees. Used for the Lambda's CORS check.
-  site_origin = local.use_custom_domain ? "https://${var.domain_names[0]}" : "https://${aws_cloudfront_distribution.site.domain_name}"
+  # CloudFront actually serves those names. Gated separately so the certificate
+  # can be requested and validated before anything switches over.
+  attach_domain = var.attach_custom_domain && local.has_domains
+
+  cloudfront_origin = "https://${aws_cloudfront_distribution.site.domain_name}"
+
+  # Canonical origin. Tracks what CloudFront really answers on, not what has
+  # merely been requested.
+  site_origin = local.attach_domain ? "https://${var.domain_names[0]}" : local.cloudfront_origin
+
+  # Every origin the contact form may be called from, canonical first. The
+  # CloudFront domain never stops working, so it stays on the list.
+  allowed_origins = distinct(concat(
+    [local.site_origin],
+    local.attach_domain ? [for name in var.domain_names : "https://${name}"] : [],
+    [local.cloudfront_origin],
+  ))
 
   # Deliberately references execute-api by wildcard rather than the concrete API
   # id: naming the API here would make CloudFront depend on API Gateway, which
@@ -87,7 +103,7 @@ resource "aws_cloudfront_distribution" "site" {
   comment             = "${var.project} static site"
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # NA + EU; the audience is in Germany
-  aliases             = var.domain_names
+  aliases             = local.attach_domain ? var.domain_names : []
 
   origin {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
@@ -125,12 +141,12 @@ resource "aws_cloudfront_distribution" "site" {
   viewer_certificate {
     # CloudFront's default certificate only covers *.cloudfront.net, so it is
     # valid exactly while no custom domain is attached.
-    cloudfront_default_certificate = local.use_custom_domain ? null : true
+    cloudfront_default_certificate = local.attach_domain ? null : true
 
-    acm_certificate_arn = local.use_custom_domain ? local.certificate_arn : null
-    ssl_support_method  = local.use_custom_domain ? "sni-only" : null
+    acm_certificate_arn = local.attach_domain ? local.certificate_arn : null
+    ssl_support_method  = local.attach_domain ? "sni-only" : null
 
-    minimum_protocol_version = local.use_custom_domain ? "TLSv1.2_2021" : null
+    minimum_protocol_version = local.attach_domain ? "TLSv1.2_2021" : null
   }
 
   restrictions {

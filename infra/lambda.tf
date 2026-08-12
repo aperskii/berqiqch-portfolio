@@ -3,6 +3,8 @@ locals {
   lambda_zip       = "${path.module}/../build/contact-lambda.zip"
 }
 
+data "aws_caller_identity" "current" {}
+
 # Built by `npm run build:lambda`, which bundles the SES client into a single
 # file so the function does not depend on what the runtime happens to ship.
 data "archive_file" "contact" {
@@ -50,11 +52,17 @@ data "aws_iam_policy_document" "contact_permissions" {
       "ses:SendRawEmail",
     ]
 
-    # Scoped to the identities this function is allowed to send as, so a
-    # compromised function cannot send from anything else in the account.
-    resources = local.ses_identity_arns
+    # Any identity in this account and region, but see the condition below.
+    #
+    # Listing only the sender's identity ARN looks tighter and was tried first,
+    # but SES evaluates SendEmail against more than the From identity: with a
+    # domain-based sender it also authorised against the recipient's identity,
+    # and denied the call. Since every ARN here is an identity this account
+    # already owns and verified, the width costs nothing.
+    resources = ["arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/*"]
 
-    # Belt and braces: the From address is pinned even within those identities.
+    # This is the real constraint: the function can only ever send as
+    # var.mail_from, whatever identities happen to exist in the account.
     condition {
       test     = "StringEquals"
       variable = "ses:FromAddress"
@@ -91,11 +99,15 @@ resource "aws_lambda_function" "contact" {
 
   environment {
     variables = {
-      MAIL_TO        = var.mail_to
-      MAIL_FROM      = var.mail_from
-      ALLOWED_ORIGIN = local.site_origin
-      AUTO_REPLY     = tostring(var.auto_reply)
-      NODE_OPTIONS   = "--enable-source-maps"
+      MAIL_TO   = var.mail_to
+      MAIL_FROM = var.mail_from
+      # Canonical origin first — it is what the browser is told when a caller is
+      # not on the list. The CloudFront domain stays allowed because the site
+      # remains reachable there after the custom domain is attached, and the form
+      # should not break for anyone using that URL.
+      ALLOWED_ORIGINS = join(",", local.allowed_origins)
+      AUTO_REPLY      = tostring(var.auto_reply)
+      NODE_OPTIONS    = "--enable-source-maps"
     }
   }
 

@@ -25,15 +25,28 @@ ses_domain = "berqiqch.de"
 # --- CI/CD ----------------------------------------------------------------
 
 # Set once the repository exists to create the OIDC deploy role.
-# github_repository = "aperskii/portfolio"
-# github_branch     = "main"
+github_repository = "aperskii/berqiqch-portfolio"
+github_branch     = "main"
 
-# The account already has an OIDC provider for GitHub? Set this to false.
-# create_github_oidc_provider = true
+# Some accounts issue OIDC subject claims with immutable numeric ids embedded
+# (repo:owner@<id>/name@<id>:ref:...) rather than the documented name form. This
+# one does, and a trust policy matching only names is denied. Get the ids with:
+#   curl -s https://api.github.com/repos/<owner>/<name> | jq '.owner.id, .id'
+# Leave empty if your account issues the name form. See DEPLOY.md section 6.
+github_owner_id      = "101721381"
+github_repository_id = "1332172797"
+
+# This account already has a GitHub OIDC provider, and AWS allows only one per
+# issuer URL, so reference it rather than creating a second.
+create_github_oidc_provider = false
 
 # --- custom domain --------------------------------------------------------
 
-# Currently unused. berqiqch.de still answers on checkdomain.de nameservers.
-# Once its zone is live in Route 53, switch this on and create the ACM
-# validation records there. See DEPLOY.md.
-# domain_names = ["berqiqch.de", "www.berqiqch.de"]
+# DNS stays at checkdomain (ns.checkdomain.de); nothing here manages records.
+# www first: it becomes the canonical origin and matches index.html's canonical.
+domain_names = ["www.berqiqch.de", "berqiqch.de"]
+
+# Two-stage on purpose. False requests the certificate only, so its validation
+# CNAME can be read and created by hand. Flip to true once ACM reports ISSUED —
+# CloudFront rejects a PENDING_VALIDATION certificate. See DEPLOY.md section 7.
+attach_custom_domain = false

@@ -5,12 +5,15 @@
  * the submission exists only for the lifetime of this invocation.
  *
  * Environment:
- *   MAIL_TO         required  recipient (verified SES identity)
- *   MAIL_FROM       required  verified sender identity
- *   ALLOWED_ORIGIN  required  exact origin allowed to call this, or "*"
- *   AUTO_REPLY      optional  "true" to send a confirmation to the sender.
- *                             Requires SES production access - in the sandbox
- *                             SES rejects unverified recipients.
+ *   MAIL_TO          required  recipient (verified SES identity)
+ *   MAIL_FROM        required  verified sender identity
+ *   ALLOWED_ORIGINS  required  comma-separated list of origins allowed to call
+ *                              this, or "*". The site is reachable both on its
+ *                              custom domain and on the CloudFront domain, so
+ *                              both are listed.
+ *   AUTO_REPLY       optional  "true" to send a confirmation to the sender.
+ *                              Requires SES production access - in the sandbox
+ *                              SES rejects unverified recipients.
  */
 
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
@@ -19,8 +22,18 @@ const ses = new SESv2Client({});
 
 const MAIL_TO = process.env.MAIL_TO;
 const MAIL_FROM = process.env.MAIL_FROM;
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '';
 const AUTO_REPLY = process.env.AUTO_REPLY === 'true';
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+const ALLOW_ANY_ORIGIN = ALLOWED_ORIGINS.includes('*');
+
+function originAllowed(origin) {
+  return ALLOW_ANY_ORIGIN || (origin !== '' && ALLOWED_ORIGINS.includes(origin));
+}
 
 const LIMITS = {
   name: 100,
@@ -35,9 +48,12 @@ const MIN_MESSAGE = 10;
 const EMAIL_RE = /^[^\s@,;:<>()[\]\\]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
 
 function corsHeaders(origin) {
-  const allow = ALLOWED_ORIGIN === '*'
+  // Echo the caller's own origin when it is on the list. Falling back to the
+  // first entry keeps the header a single definite value for everyone else,
+  // which is what browsers require — a list here would be rejected.
+  const allow = ALLOW_ANY_ORIGIN
     ? '*'
-    : (origin && origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN);
+    : (originAllowed(origin) ? origin : (ALLOWED_ORIGINS[0] ?? ''));
 
   return {
     'Access-Control-Allow-Origin': allow,
@@ -217,8 +233,9 @@ export const handler = async (event) => {
     return reply(500, { error: 'The contact form is misconfigured.' }, origin);
   }
 
-  // Reject cross-origin callers unless the deployment opts into "*".
-  if (ALLOWED_ORIGIN && ALLOWED_ORIGIN !== '*' && origin && origin !== ALLOWED_ORIGIN) {
+  // Reject cross-origin callers unless the deployment opts into "*". A request
+  // with no Origin header at all is not a browser and is left alone.
+  if (ALLOWED_ORIGINS.length && origin && !originAllowed(origin)) {
     return reply(403, { error: 'Origin not allowed.' }, origin);
   }
 

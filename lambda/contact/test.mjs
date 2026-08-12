@@ -11,11 +11,13 @@ import assert from 'node:assert/strict';
 
 process.env.MAIL_TO = 'owner@example.com';
 process.env.MAIL_FROM = 'noreply@example.com';
-process.env.ALLOWED_ORIGIN = 'https://www.berqiqch.de';
+// Two origins, as in production: the custom domain and the CloudFront domain.
+process.env.ALLOWED_ORIGINS = 'https://www.berqiqch.de,https://example.cloudfront.net';
 
 const { handler } = await import('./index.mjs');
 
 const ORIGIN = 'https://www.berqiqch.de';
+const SECOND_ORIGIN = 'https://example.cloudfront.net';
 
 function event(body, { origin = ORIGIN, method = 'POST' } = {}) {
   return {
@@ -62,6 +64,34 @@ await check('GET is rejected with 405', async () => {
 await check('foreign origin is rejected with 403', async () => {
   const res = await handler(event(valid, { origin: 'https://evil.example' }));
   assert.equal(res.statusCode, 403);
+});
+
+await check('second allowed origin passes and is echoed back', async () => {
+  const res = await handler(event('', { method: 'OPTIONS', origin: SECOND_ORIGIN }));
+  assert.equal(res.statusCode, 204);
+  assert.equal(res.headers['Access-Control-Allow-Origin'], SECOND_ORIGIN);
+});
+
+await check('rejected origin is not echoed into the CORS header', async () => {
+  const res = await handler(event(valid, { origin: 'https://evil.example' }));
+  assert.equal(res.headers['Access-Control-Allow-Origin'], ORIGIN);
+  assert.equal(res.headers.Vary, 'Origin');
+});
+
+await check('origin substring is not treated as a match', async () => {
+  const res = await handler(event(valid, { origin: 'https://www.berqiqch.de.evil.example' }));
+  assert.equal(res.statusCode, 403);
+});
+
+await check('request with no Origin header is not blocked by the origin gate', async () => {
+  // Deliberately invalid so this stops at validation instead of calling SES:
+  // reaching 400 rather than 403 is what proves the gate let it through.
+  const res = await handler({
+    requestContext: { http: { method: 'POST' } },
+    headers: {},
+    body: JSON.stringify({ ...valid, email: 'not-an-email' })
+  });
+  assert.equal(res.statusCode, 400);
 });
 
 await check('malformed JSON returns 400', async () => {

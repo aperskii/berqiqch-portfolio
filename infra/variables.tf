@@ -51,8 +51,8 @@ variable "ses_domain" {
 
     Leave empty to verify only the mail_to email address. When set, Terraform
     creates the domain identity with DKIM and outputs the CNAME records to
-    create (see the ses_dkim_records output). Those records work in any
-    authoritative zone, so this does not depend on the Route 53 migration.
+    create (see the ses_dkim_records output). DNS for berqiqch.de is managed by
+    hand at checkdomain, so those records are added there.
   EOT
   type        = string
   default     = ""
@@ -70,19 +70,36 @@ variable "throttle_burst_limit" {
   default     = 5
 }
 
-# --- custom domain (currently unused) ---------------------------------------
+# --- custom domain ----------------------------------------------------------
 
 variable "domain_names" {
   description = <<-EOT
-    Domains to serve the site on, e.g. ["berqiqch.de", "www.berqiqch.de"].
+    Names to put on the ACM certificate, most specific first. The first entry
+    becomes the site's canonical origin once attached.
 
-    Empty means CloudFront serves only its own *.cloudfront.net name, which is
-    the current setup. berqiqch.de still answers on checkdomain.de nameservers;
-    once its zone is live in Route 53 the validation and alias records can be
-    managed here. See DEPLOY.md.
+    Setting this only requests the certificate; it does not change CloudFront.
+    Empty means no certificate at all.
   EOT
   type        = list(string)
   default     = []
+}
+
+variable "attach_custom_domain" {
+  description = <<-EOT
+    Attach domain_names to CloudFront as aliases and serve them on the ACM
+    certificate.
+
+    Kept separate from domain_names because DNS for berqiqch.de is managed by
+    hand at checkdomain. The certificate must be requested first so its
+    validation record can be read and created; only once ACM reports the
+    certificate ISSUED can it be attached. Turning this on before then makes
+    Terraform wait, and CloudFront reject the certificate.
+
+    Sequence: set domain_names -> apply -> create the DNS records -> set this
+    true -> apply again.
+  EOT
+  type        = bool
+  default     = false
 }
 
 variable "acm_certificate_arn" {
@@ -112,6 +129,35 @@ variable "github_branch" {
   description = "Branch permitted to assume the deploy role."
   type        = string
   default     = "main"
+}
+
+variable "github_owner_id" {
+  description = <<-EOT
+    Numeric GitHub account id of the repository owner.
+
+    Some accounts issue OIDC tokens whose `sub` embeds immutable numeric ids
+    rather than names:
+
+      repo:owner@<owner_id>/name@<repo_id>:ref:refs/heads/main
+
+    instead of the documented `repo:owner/name:ref:refs/heads/main`. A trust
+    policy matching only the name form is then denied, because IAM compares the
+    claim with StringEquals. Setting this and github_repository_id makes the
+    role accept both spellings.
+
+    Find them with:
+      curl -s https://api.github.com/repos/<owner>/<name> | jq '.owner.id, .id'
+
+    Leave empty to trust only the name form.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "github_repository_id" {
+  description = "Numeric GitHub id of the repository. See github_owner_id."
+  type        = string
+  default     = ""
 }
 
 variable "create_github_oidc_provider" {

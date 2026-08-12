@@ -12,6 +12,21 @@ locals {
     ? aws_iam_openid_connect_provider.github[0].arn
     : data.aws_iam_openid_connect_provider.github[0].arn
   ) : null
+
+  github_owner = split("/", var.github_repository)[0]
+  github_name  = try(split("/", var.github_repository)[1], "")
+
+  use_immutable_subject = var.github_owner_id != "" && var.github_repository_id != ""
+
+  # Both spellings of the subject claim. This account issues the id-embedding
+  # form, so matching only the documented name form is denied outright — see
+  # github_owner_id for the details.
+  github_subjects = concat(
+    ["repo:${var.github_repository}:ref:refs/heads/${var.github_branch}"],
+    local.use_immutable_subject ? [
+      "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repository_id}:ref:refs/heads/${var.github_branch}"
+    ] : [],
+  )
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -46,11 +61,12 @@ data "aws_iam_policy_document" "ci_assume" {
     }
 
     # Restricted to one branch of one repository. Without this condition any
-    # GitHub repository on the internet could assume the role.
+    # GitHub repository on the internet could assume the role. Both accepted
+    # values name that same branch, so listing two does not widen access.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/${var.github_branch}"]
+      values   = local.github_subjects
     }
   }
 }
@@ -87,9 +103,17 @@ data "aws_iam_policy_document" "ci_permissions" {
   }
 
   statement {
-    sid       = "InvalidateCache"
-    effect    = "Allow"
-    actions   = ["cloudfront:CreateInvalidation"]
+    sid    = "InvalidateCache"
+    effect = "Allow"
+
+    actions = [
+      "cloudfront:CreateInvalidation",
+      # The workflow blocks on `aws cloudfront wait invalidation-completed`,
+      # which polls GetInvalidation. Granting only CreateInvalidation deploys
+      # the site and then fails the job on the wait.
+      "cloudfront:GetInvalidation",
+    ]
+
     resources = [aws_cloudfront_distribution.site.arn]
   }
 }

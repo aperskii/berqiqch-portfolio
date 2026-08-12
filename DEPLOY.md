@@ -103,47 +103,49 @@ usually takes about a day.
 
 ### Deliverability and the berqiqch.de domain identity
 
-`ses_domain = "berqiqch.de"` is set, so Terraform creates the domain identity and
-generates its DKIM tokens on apply. **Creating the identity and verifying it are
-two different things**: SES will not mark the domain verified until the three
-CNAME records resolve publicly.
+**Done.** `ses_domain = "berqiqch.de"` is verified with DKIM `SUCCESS`, its three
+CNAMEs live at checkdomain, and `mail_from = "noreply@berqiqch.de"`. Mail is
+DKIM-signed and DMARC-aligned.
 
-`mail_from` therefore stays on the Gmail address for now. That works, but
-`gmail.com` publishes SPF and DMARC records that do not authorise SES to send on
-its behalf, so strict receivers may file the message as spam. Pointing
-`mail_from` at `noreply@berqiqch.de` before the domain verifies would not improve
-that — it would make **every send fail**, because SES rejects an unverified
-sender outright.
+Worth knowing why it is set up this way, if you ever rebuild it:
 
-To finish the switch:
+- **Creating the identity and verifying it are two different things.** Terraform
+  mints the DKIM tokens on apply, but SES only flips the identity to verified
+  once the CNAMEs resolve publicly. Read them with
+  `terraform output -json ses_dkim_records`.
+- **`mail_from` must not point at the domain before it verifies.** SES rejects an
+  unverified sender outright, so switching early breaks every send rather than
+  improving deliverability. Sending as a `gmail.com` address works but fails SPF
+  and DMARC alignment, because Google's records do not authorise SES.
+- Confirm status any time:
 
-1. Read the records:
+  ```bash
+  aws sesv2 get-email-identity --email-identity berqiqch.de \
+    --region eu-central-1 --query '{Verified:VerifiedForSendingStatus,DKIM:DkimAttributes.Status}'
+  ```
 
-   ```bash
-   cd infra && terraform output -json ses_dkim_records
-   ```
+DKIM alone satisfies DMARC alignment here. To add a policy record too:
+`_dmarc.berqiqch.de TXT "v=DMARC1; p=none; rua=mailto:…"`, tightening `p=` once
+reports look clean.
 
-2. Create all three CNAMEs in whichever zone is authoritative for `berqiqch.de`.
-   At the time of writing that is **checkdomain.de** (`ns.checkdomain.de`,
-   `ns2.checkdomain.de`), not Route 53. The records work in either, so this does
-   not have to wait for the migration — but if you are about to move the zone,
-   create them in Route 53 after the move instead of twice.
+### Why the Lambda's SES policy uses `identity/*`
 
-3. Wait for verification, then confirm:
+The IAM statement allows `ses:SendEmail` on `identity/*` within this account and
+region, constrained by a `ses:FromAddress` condition rather than by listing the
+sender's identity ARN.
 
-   ```bash
-   aws sesv2 get-email-identity --email-identity berqiqch.de \
-     --region eu-central-1 --query '{Verified:VerifiedForSendingStatus,DKIM:DkimAttributes.Status}'
-   ```
+Narrowing `resources` to the sender identity was tried first and **fails**: with
+a domain-based sender, SES also authorises against the *recipient's* identity,
+producing
 
-4. Only once that reports verified, set `mail_from = "noreply@berqiqch.de"` in
-   `terraform.tfvars` and apply again. The Lambda's IAM policy pins
-   `ses:FromAddress`, so this is the single switch that moves sending to the
-   domain.
+```
+AccessDeniedException: not authorized to perform `ses:SendEmail'
+on resource `…:identity/yassine.berqiqch@gmail.com'
+```
 
-DKIM alone satisfies DMARC alignment for this setup. If you later want a `DMARC`
-policy record too, add `_dmarc.berqiqch.de TXT "v=DMARC1; p=none; rua=mailto:…"`
-and tighten `p=` once you see clean reports.
+Every ARN the wildcard covers is an identity this account already owns and
+verified, so the width costs nothing. The `ses:FromAddress` condition is the
+control that matters: the function can only ever send as `mail_from`.
 
 ## 4. Deploy the site
 
@@ -216,66 +218,182 @@ github_repository = "aperskii/<repo-name>"
 github_branch     = "main"
 ```
 
-Apply, then in **GitHub → Settings → Secrets and variables → Actions** add:
+This account **already had** a GitHub OIDC provider (AWS permits only one per
+issuer URL), so `create_github_oidc_provider = false` is set and Terraform
+references the existing one instead of failing with `EntityAlreadyExists`.
 
-| Kind     | Name                         | Value                                          |
-| -------- | ---------------------------- | ---------------------------------------------- |
-| Secret   | `AWS_DEPLOY_ROLE_ARN`        | `terraform output -raw github_deploy_role_arn`  |
-| Secret   | `S3_BUCKET`                  | `terraform output -raw s3_bucket`               |
-| Secret   | `CLOUDFRONT_DISTRIBUTION_ID` | `terraform output -raw cloudfront_distribution_id` |
-| Variable | `CONTACT_ENDPOINT`           | `terraform output -raw contact_endpoint`         |
+Apply, then in **GitHub → Settings → Secrets and variables → Actions** add the
+four entries below. Mind the Secret/Variable split: the workflow reads
+`CONTACT_ENDPOINT` as `vars.CONTACT_ENDPOINT`, so adding it as a Secret leaves it
+empty and the build fails its own guard step.
 
-The role's trust policy is pinned to `repo:<owner>/<name>:ref:refs/heads/main`,
-so no other repository or branch can assume it. Its permissions are limited to
-writing objects in the site bucket and creating invalidations on the one
-distribution.
+| Kind     | Name                         | Value |
+| -------- | ---------------------------- | ----- |
+| Secret   | `AWS_DEPLOY_ROLE_ARN`        | `arn:aws:iam::090173136382:role/berqiqch-portfolio-github-deploy` |
+| Secret   | `S3_BUCKET`                  | `berqiqch-portfolio-site-89ceca57` |
+| Secret   | `CLOUDFRONT_DISTRIBUTION_ID` | `E1RFXULQQLZURN` |
+| Variable | `CONTACT_ENDPOINT`           | `https://rq6lon2gx0.execute-api.eu-central-1.amazonaws.com/contact` |
 
-If the account already has a GitHub OIDC provider, set
-`create_github_oidc_provider = false` — AWS permits only one per issuer URL.
+Re-read them any time:
+
+```bash
+cd infra
+terraform output -raw github_deploy_role_arn
+terraform output -raw s3_bucket
+terraform output -raw cloudfront_distribution_id
+terraform output -raw contact_endpoint
+```
+
+The role's trust policy is pinned to this repository's `main` branch, so no other
+repository or branch can assume it. Its permissions cover only writing objects in
+the site bucket and creating invalidations on this one distribution.
+
+### Two subject claims, not one
+
+The trust policy accepts **both** spellings of the OIDC subject:
+
+```
+repo:aperskii/berqiqch-portfolio:ref:refs/heads/main
+repo:aperskii@101721381/berqiqch-portfolio@1332172797:ref:refs/heads/main
+```
+
+This account issues the second form, which embeds immutable numeric ids for the
+owner and the repository. A trust policy carrying only the documented name form
+is rejected outright:
+
+```
+AccessDenied: Not authorized to perform sts:AssumeRoleWithWebIdentity
+```
+
+with everything — role ARN, audience, provider URL, `client_id_list` — otherwise
+correct, which makes it a confusing failure to chase. IAM compares the claim with
+`StringEquals`, so a spelling that differs at all does not match.
+
+If it ever recurs, do not guess: CloudTrail records the exact claim presented.
+
+```bash
+aws cloudtrail lookup-events --region eu-central-1 \
+  --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity \
+  --max-results 5 --query 'Events[].CloudTrailEvent' --output text \
+  | python -c "import sys,json;[print(json.loads(l)['userIdentity'].get('userName'),json.loads(l).get('errorCode')) for l in sys.stdin if l.strip().startswith('{')]"
+```
+
+The `userName` field is the `sub` claim. Compare it with the trust policy and add
+whatever it actually says. The numeric ids come from:
+
+```bash
+curl -s https://api.github.com/repos/aperskii/berqiqch-portfolio | jq '.owner.id, .id'
+```
+
+and are set as `github_owner_id` / `github_repository_id`. Both accepted values
+name the same repository and branch, so listing two does not widen access.
 
 ## 7. Custom domain (berqiqch.de)
 
-**Not attached yet.** The site is served from the CloudFront `*.cloudfront.net`
-name. `berqiqch.de` currently answers on **checkdomain.de** nameservers
-(`ns.checkdomain.de`, `ns2.checkdomain.de`) and there is no Route 53 hosted zone
-in the account. Nothing in this stack touches DNS.
+**DNS stays at checkdomain.** `berqiqch.de` answers on `ns.checkdomain.de` /
+`ns2.checkdomain.de`, and there is deliberately no Route 53 hosted zone — every
+record is added by hand in the checkdomain panel. Terraform never touches DNS.
 
-`berqiqch.com` is expired and deliberately not renewed; no configuration
-references it.
+`berqiqch.com` is expired and not renewed; no configuration references it.
 
-### Before moving the zone
+Because the records are manual, attaching the domain is a **two-stage apply**,
+split by `attach_custom_domain`:
 
-Check what the current zone actually serves, and carry it over. In particular
-**inspect the `MX` records** — if `berqiqch.de` receives mail, recreating those
-records in Route 53 *before* repointing the nameservers is what keeps inbound
-email working:
+| Stage | tfvars | Effect |
+| ----- | ------ | ------ |
+| 1 | `domain_names` set, `attach_custom_domain = false` | Certificate requested. CloudFront untouched. Validation record readable. |
+| 2 | `attach_custom_domain = true` | Waits for ACM to reach ISSUED, then CloudFront serves the names. |
+
+Doing it in one step does not work: CloudFront rejects a certificate that is
+still `PENDING_VALIDATION`, and ACM cannot validate until records exist that only
+you can create.
+
+### Stage 1 — request the certificate (already applied)
 
 ```bash
-nslookup -type=MX berqiqch.de 8.8.8.8
-nslookup -type=TXT berqiqch.de 8.8.8.8
-nslookup -type=A berqiqch.de 8.8.8.8
+terraform output -json acm_validation_records
 ```
 
-### Once the zone is live in Route 53
+### Records to create at checkdomain
 
-1. Create the hosted zone, recreate the existing records, then repoint the
-   nameservers at the registrar. Verify resolution before continuing.
-2. Set `domain_names = ["berqiqch.de", "www.berqiqch.de"]` and apply. The apply
-   **blocks** while ACM waits for validation — that is expected, not a hang.
-3. In a second terminal, read the records ACM wants:
+Two ACM validation CNAMEs, then the host itself. Trailing dots as ACM reports
+them; checkdomain may or may not want them, and may append the zone
+automatically — if it does, enter only the part before `.berqiqch.de`.
 
-   ```bash
-   terraform output -json acm_validation_records
-   ```
+| Purpose | Type | Name | Value |
+| ------- | ---- | ---- | ----- |
+| ACM validation (apex) | CNAME | `_2a678419f6473e7ff04819834e94751a.berqiqch.de.` | `_b0f4ca540cf3f48e1f2d43882f6796c3.jkddzztszm.acm-validations.aws.` |
+| ACM validation (www) | CNAME | `_7871f3f92aae2b9ef24e383f27534804.www.berqiqch.de.` | `_76c275b699add719bcdc6879a412d622.jkddzztszm.acm-validations.aws.` |
+| Site host | CNAME | `www.berqiqch.de` | `djypb1s1v2jna.cloudfront.net` |
 
-4. Create them in the hosted zone. ACM issues the certificate, then the apply
-   completes and CloudFront picks up the aliases.
-5. Point the names at CloudFront. In Route 53 both can be **alias A/AAAA records
-   targeting the distribution**, including the apex — that is the advantage over
-   a registrar's DNS, where the apex cannot be a CNAME.
+Validation CNAMEs must stay in place permanently — ACM re-checks them on
+renewal, and removing them eventually breaks the certificate.
 
-The site's `canonical` and `og:url` already point at `https://www.berqiqch.de/`,
-so no HTML changes are needed when the domain goes live.
+### The apex cannot be a CNAME
+
+`berqiqch.de` on its own cannot point at CloudFront. A CNAME at a zone apex is
+invalid per DNS, and CloudFront publishes no stable IP addresses to put in an A
+record. Route 53 solves this with alias records; a registrar's DNS generally does
+not. Options at checkdomain, best first:
+
+1. **HTTP redirect / domain forwarding** from `berqiqch.de` to
+   `https://www.berqiqch.de`. This is why `www` is first in `domain_names` and
+   why the site's `canonical` is `https://www.berqiqch.de/`.
+2. **An `ALIAS`/`ANAME` record**, if checkdomain offers one — then point the apex
+   at `djypb1s1v2jna.cloudfront.net` directly.
+
+The apex is on the certificate either way, so option 2 works whenever you find it
+available.
+
+### Stage 2 — attach
+
+Once `terraform output` and `dig` agree the records resolve:
+
+```bash
+aws acm describe-certificate --region us-east-1 \
+  --certificate-arn "$(terraform output -raw acm_certificate_arn 2>/dev/null || echo '')" \
+  --query 'Certificate.Status'
+```
+
+Set `attach_custom_domain = true`, then:
+
+```bash
+terraform apply
+```
+
+The apply waits (up to 45 minutes) for ACM, then updates CloudFront.
+
+`CONTACT_ENDPOINT` does not change, so the built site is byte-identical and no
+rebuild is strictly required. The Lambda's `ALLOWED_ORIGINS` does change, and
+Terraform updates it in the same apply.
+
+Verify:
+
+```bash
+curl -sI https://www.berqiqch.de/ | head -3
+terraform output custom_domain_attached   # expect true
+terraform output -json allowed_origins
+```
+
+### Origins the form accepts
+
+`ALLOWED_ORIGINS` is a comma-separated list, not a single value, and Terraform
+populates it with the custom domain, the apex, **and** the CloudFront domain:
+
+```
+https://www.berqiqch.de,https://berqiqch.de,https://djypb1s1v2jna.cloudfront.net
+```
+
+The CloudFront domain stays on the list deliberately. Attaching a custom domain
+does not stop `*.cloudfront.net` from serving the site, so dropping it would make
+the form start answering 403 for anyone still using that URL — including your own
+smoke tests.
+
+The handler echoes back whichever listed origin the caller used and always sends
+`Vary: Origin`, because a browser rejects a list in
+`Access-Control-Allow-Origin`. Unlisted origins get the canonical origin in that
+header and a 403 body. Matching is exact string equality, so
+`https://www.berqiqch.de.evil.example` is not a match.
 
 ## Cost
 
