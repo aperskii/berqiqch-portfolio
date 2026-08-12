@@ -576,8 +576,8 @@ h3 { font-size: 1.1rem; }
 .project-card p { margin-top: .7rem; font-size: .93rem; color: var(--text-dim); }
 .project-card .tags { margin-top: 1.1rem; }
 
-/* The featured card spans the row on wide screens; its write-up is longer than
-   the others and reads badly squeezed into a third of the width. */
+/* The featured card takes a 2x2 block on screens wide enough for a 4-column
+   bento layout; on narrower screens it still spans the row on its own. */
 .project-card-featured {
   grid-column: 1 / -1;
   border-color: var(--line-hi);
@@ -614,6 +614,18 @@ h3 { font-size: 1.1rem; }
 
 .project-link:hover { border-bottom-color: var(--accent); }
 .project-link .icon { width: .95rem; height: .95rem; }
+
+@media (min-width: 900px) {
+  .project-grid {
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-flow: dense;
+  }
+
+  .project-card-featured {
+    grid-column: 1 / 3;
+    grid-row: 1 / 3;
+  }
+}
 
 /* --- certificates --------------------------------------------------------- */
 
