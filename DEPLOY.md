@@ -159,9 +159,15 @@ npm run build:site
 BUCKET="$(cd infra && terraform output -raw s3_bucket)"
 DIST_ID="$(cd infra && terraform output -raw cloudfront_distribution_id)"
 
+# Everything but the HTML is safe to pin for a year: fonts, images and PDFs
+# change only by being replaced under a new name, and the build writes css/js
+# as name.<hash>.ext, so a new build never reuses a cached URL. --delete
+# removes the previous build's hashed files.
 aws s3 sync dist/ "s3://$BUCKET/" --delete \
   --exclude "*.html" --cache-control "public,max-age=31536000,immutable"
 
+# index.html is the one stable URL, and it is what points at the current
+# hashed assets, so it must revalidate on every visit.
 aws s3 sync dist/ "s3://$BUCKET/" \
   --exclude "*" --include "*.html" \
   --cache-control "public,max-age=0,must-revalidate" \

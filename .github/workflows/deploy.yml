@@ -57,7 +57,10 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       # Fingerprinted filenames are not used, so caching is split by path:
-      # assets get a long TTL, HTML must always revalidate.
+      # Everything but the HTML is safe to pin for a year: fonts, images and
+      # PDFs change only by being replaced under a new name, and css/js carry a
+      # content hash in the filename, so a new build is never the cached URL.
+      # --delete clears the previous build's hashed files.
       - name: Upload immutable assets
         run: |
           aws s3 sync dist/ "s3://${{ secrets.S3_BUCKET }}/" \
@@ -65,6 +68,8 @@ jobs:
             --exclude "*.html" \
             --cache-control "public,max-age=31536000,immutable"
 
+      # The HTML is the one file whose URL is stable, so it must revalidate —
+      # it is what points at the current hashed assets.
       - name: Upload HTML
         run: |
           aws s3 sync dist/ "s3://${{ secrets.S3_BUCKET }}/" \
