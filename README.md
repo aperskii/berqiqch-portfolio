@@ -19,7 +19,7 @@ lambda/contact/
   index.mjs             SES handler
   test.mjs              unit checks, no AWS calls
 infra/                  Terraform: S3, CloudFront, API Gateway, Lambda, SES, IAM
-scripts/fetch-fonts.mjs regenerates the font subsets
+scripts/                fetch-fonts.mjs, build-tech-icons.mjs
 build.mjs               minifies to dist/, bundles the lambda
 .github/workflows/      deploy on push to main
 ```
@@ -32,6 +32,7 @@ npm test              # contact handler checks
 npm run build         # dist/ + build/lambda/
 npm run dev           # rebuild dist/ on change
 npm run fonts         # re-download font subsets
+npm run icons         # regenerate the brand marks in the sprite
 ```
 
 Preview over HTTP, not `file://` — that breaks the font paths:
@@ -81,3 +82,7 @@ Source is free to read and learn from. The CV, certificates, photographs and
 written content are not.
 
 Inter and Space Grotesk are used under the SIL Open Font License 1.1.
+
+Brand marks in the skills section come from [simple-icons](https://simpleicons.org)
+(CC0-1.0) and are reduced to monochrome. Each logo remains a trademark of its
+owner and is used only to identify the tool named beside it.

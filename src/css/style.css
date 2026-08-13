@@ -594,6 +594,9 @@ h3 { font-size: 1.1rem; }
 .tags { display: flex; flex-wrap: wrap; gap: .45rem; }
 
 .tags li {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
   padding: .32rem .75rem;
   font-size: .82rem;
   line-height: 1.5;
@@ -609,6 +612,17 @@ h3 { font-size: 1.1rem; }
   color: var(--accent-hi);
   border-color: var(--accent);
   background-color: var(--accent-soft);
+}
+
+/* Brand marks are filled, not stroked like the rest of the sprite, and inherit
+   the pill's colour so they follow it on hover instead of introducing a second
+   palette. Only tags naming a real tool carry one. */
+.tag-icon {
+  width: .95rem;
+  height: .95rem;
+  flex: none;
+  fill: currentColor;
+  stroke: none;
 }
 
 .tags-sm li { font-size: .76rem; padding: .24rem .62rem; }

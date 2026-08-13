@@ -148,9 +148,28 @@ function checkInlineScriptHashes(html) {
   log(`html: ${found.length} inline script(s), hashes match the CSP`);
 }
 
+/* A <use> pointing at a symbol that is not in the sprite renders nothing at
+ * all — no error, no fallback, just a gap where an icon should be. Cheap to
+ * catch here instead of noticing it on the deployed page. */
+function checkSpriteRefs(html) {
+  const defined = new Set([...html.matchAll(/<symbol\s+id="([^"]+)"/g)].map((m) => m[1]));
+  const used = new Set([...html.matchAll(/<use\s+href="#([^"]+)"/g)].map((m) => m[1]));
+  const missing = [...used].filter((id) => !defined.has(id));
+
+  if (missing.length) {
+    throw new Error(`sprite symbols referenced but not defined: ${missing.join(', ')}`);
+  }
+
+  const unused = [...defined].filter((id) => !used.has(id));
+  if (unused.length) log(`html: note — ${unused.length} unused sprite symbol(s): ${unused.join(', ')}`);
+
+  log(`html: ${used.size} sprite symbols referenced, all defined`);
+}
+
 async function buildHtml(assets) {
   const html = await readFile(path.join(SRC, 'index.html'), 'utf8');
   let out = minifyHtml(html);
+  checkSpriteRefs(out);
 
   for (const [from, to] of Object.entries(assets)) {
     const before = out;
