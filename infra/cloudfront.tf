@@ -100,6 +100,17 @@ data "aws_cloudfront_cache_policy" "optimized" {
   name = "Managed-CachingOptimized"
 }
 
+# default_root_object only rewrites "/". Every other directory URI, "/de/"
+# included, reaches the private S3 origin as a key with a trailing slash and
+# 404s, so the rewrite is done at the edge instead.
+resource "aws_cloudfront_function" "directory_index" {
+  name    = "${var.project}-directory-index"
+  runtime = "cloudfront-js-2.0"
+  comment = "Append index.html to directory URIs"
+  publish = true
+  code    = file("${path.module}/functions/directory-index.js")
+}
+
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -123,6 +134,11 @@ resource "aws_cloudfront_distribution" "site" {
 
     cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.site.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.directory_index.arn
+    }
   }
 
   # With OAC, a missing key comes back from S3 as 403 rather than 404. Serve the

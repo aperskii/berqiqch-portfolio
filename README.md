@@ -10,7 +10,9 @@ Terraform.
 
 ```
 src/                    site source
-  index.html
+  index.html            English page
+  de/index.html         German page, same structure and assets
+  partials/sprite.html  inline SVG sprite, shared by both pages
   css/style.css         hand-written; fonts.css is generated
   js/main.js
   fonts/                self-hosted woff2 subsets
@@ -57,6 +59,16 @@ rather than `fonts.gstatic.com`. Embedding Google Fonts transmits the visitor's
 IP address to a third party, which LG München I held to be a GDPR violation
 (3 O 17493/20, 20 January 2022). Only the `latin` and `latin-ext` subsets are
 shipped — 175 KB for four files.
+
+**German is a page, not a toggle.** `/de/` is a separate document with its own
+`lang`, `og:locale` and reciprocal `hreflang`, so both languages are crawlable
+and neither carries the other's text. They share one stylesheet, one script and
+one sprite; the few strings `main.js` shows a visitor come from `data-msg-*`
+attributes in the markup rather than from the script, which is what keeps it
+from needing a copy per language. Because the S3 origin is private behind OAC
+rather than a website endpoint, `default_root_object` only resolves `/` — a
+CloudFront Function appends `index.html` to any directory URI so `/de/` works
+the same way.
 
 **No icon font, no animation library.** The old build pulled Font Awesome and
 AOS from a CDN for a handful of icons and some scroll effects. Icons are now an

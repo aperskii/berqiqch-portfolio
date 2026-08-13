@@ -22,7 +22,7 @@ import path from 'node:path';
 import * as icons from 'simple-icons';
 
 const ROOT = path.join(import.meta.dirname, '..');
-const HTML = path.join(ROOT, 'src', 'index.html');
+const SPRITE = path.join(ROOT, 'src', 'partials', 'sprite.html');
 
 const START = '<!-- tech-icons:start -->';
 const END = '<!-- tech-icons:end -->';
@@ -80,14 +80,14 @@ async function main() {
   }
 
   const symbols = WANTED.map(([id, key]) => symbol(id, icons[key])).join('\n');
-  const html = await readFile(HTML, 'utf8');
+  const html = await readFile(SPRITE, 'utf8');
 
   const from = html.indexOf(START);
   const to = html.indexOf(END);
-  if (from === -1 || to === -1) throw new Error(`markers ${START} / ${END} not found in index.html`);
+  if (from === -1 || to === -1) throw new Error(`markers ${START} / ${END} not found in the sprite partial`);
 
   const out = html.slice(0, from + START.length) + '\n' + symbols + '\n' + html.slice(to);
-  await writeFile(HTML, out, 'utf8');
+  await writeFile(SPRITE, out, 'utf8');
 
   const bytes = Buffer.byteLength(symbols, 'utf8');
   console.log(`[icons] ${WANTED.length} symbols written, ${(bytes / 1024).toFixed(1)} KB of sprite`);

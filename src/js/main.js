@@ -180,7 +180,17 @@
 
   var statusEl = document.getElementById('cf-status');
   var submitBtn = document.getElementById('cf-submit');
-  var MAILTO = 'yassine.berqiqch@gmail.com';
+
+  /* Every visitor-facing string lives in the markup, because this file is
+     served to both the English and the German page. msg() reads the form's
+     data-msg-* attributes; fieldMsg() reads the input's own. */
+  function msg(name) {
+    return form.getAttribute('data-msg-' + name) || '';
+  }
+
+  function fieldMsg(el, name) {
+    return el.getAttribute('data-msg-' + name) || '';
+  }
 
   var fields = {
     name: { el: form.elements.name, error: document.getElementById('cf-name-error') },
@@ -220,15 +230,19 @@
 
   function validate(data) {
     var errors = {};
-    if (!data.name) errors.name = 'Please enter your name.';
-    else if (data.name.length > 100) errors.name = 'Name is too long (max 100 characters).';
+    var nameEl = fields.name.el;
+    var emailEl = fields.email.el;
+    var messageEl = fields.message.el;
 
-    if (!data.email) errors.email = 'Please enter your email address.';
-    else if (!looksLikeEmail(data.email)) errors.email = 'Please enter a valid email address.';
+    if (!data.name) errors.name = fieldMsg(nameEl, 'required');
+    else if (data.name.length > 100) errors.name = fieldMsg(nameEl, 'maxlength');
 
-    if (!data.message) errors.message = 'Please enter a message.';
-    else if (data.message.length < 10) errors.message = 'Please write at least 10 characters.';
-    else if (data.message.length > 5000) errors.message = 'Message is too long (max 5000 characters).';
+    if (!data.email) errors.email = fieldMsg(emailEl, 'required');
+    else if (!looksLikeEmail(data.email)) errors.email = fieldMsg(emailEl, 'invalid-email');
+
+    if (!data.message) errors.message = fieldMsg(messageEl, 'required');
+    else if (data.message.length < 10) errors.message = fieldMsg(messageEl, 'minlength');
+    else if (data.message.length > 5000) errors.message = fieldMsg(messageEl, 'maxlength');
 
     return errors;
   }
@@ -262,12 +276,12 @@
       keys.forEach(function (k) { setFieldError(k, errors[k]); });
       var first = fields[keys[0]].el;
       if (first) first.focus();
-      setStatus('error', 'Please correct the highlighted fields.');
+      setStatus('error', msg('check'));
       return;
     }
 
     if (!ENDPOINT || ENDPOINT.indexOf('__CONTACT') === 0) {
-      setStatus('error', 'The form is not configured yet. Please email me at ' + MAILTO + '.');
+      setStatus('error', msg('unconfigured'));
       return;
     }
 
@@ -292,20 +306,18 @@
       .then(function (res) {
         if (res.ok) {
           form.reset();
-          setStatus('success', 'Thanks for reaching out — your message is on its way. I will reply soon.');
+          setStatus('success', msg('success'));
           return;
         }
         if (res.status === 429) {
-          setStatus('error', 'Too many messages sent. Please try again in a few minutes.');
+          setStatus('error', msg('throttled'));
           return;
         }
-        setStatus('error', (res.body && res.body.error) ||
-          'Something went wrong sending your message. Please email me at ' + MAILTO + '.');
+        // The API's own error text is English only, so prefer the page's wording.
+        setStatus('error', msg('error') || (res.body && res.body.error) || '');
       })
       .catch(function (err) {
-        setStatus('error', err && err.name === 'AbortError'
-          ? 'The request timed out. Please try again or email me at ' + MAILTO + '.'
-          : 'Network error. Please try again or email me at ' + MAILTO + '.');
+        setStatus('error', err && err.name === 'AbortError' ? msg('timeout') : msg('network'));
       })
       .then(function () {
         clearTimeout(timer);

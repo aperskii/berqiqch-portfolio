@@ -32,6 +32,11 @@ const CONTACT_ENDPOINT = process.env.CONTACT_ENDPOINT ?? '';
 
 const STATIC_DIRS = ['images', 'files', 'fonts'];
 
+/* Each language is a real page at its own URL rather than a runtime string
+ * swap, so both are crawlable and can carry their own hreflang. They share the
+ * stylesheet, the script and the sprite. */
+const PAGES = ['index.html', 'de/index.html'];
+
 /* The CSP is script-src 'self' plus a hash for the one inline script (the theme
  * bootstrap in <head>). CloudFront serves that header from Terraform, which is
  * applied separately from this build, so a change here would otherwise only
@@ -83,7 +88,7 @@ async function buildCss() {
 
     await mkdir(path.join(DIST, 'css'), { recursive: true });
     await writeFile(path.join(DIST, 'css', name), code, 'utf8');
-    assets[`css/${file}`] = `css/${name}`;
+    assets[`/css/${file}`] = `/css/${name}`;
   }
 
   log(`css: ${Object.values(assets).map((f) => path.basename(f)).join(', ')}`);
@@ -117,7 +122,7 @@ async function buildJs() {
   await writeFile(path.join(DIST, 'js', name), code, 'utf8');
   log(`js: ${name}`);
 
-  return { 'js/main.js': `js/${name}` };
+  return { '/js/main.js': `/js/${name}` };
 }
 
 /** sha256-base64 of every inline <script> in the built HTML, in document order. */
@@ -166,20 +171,48 @@ function checkSpriteRefs(html) {
   log(`html: ${used.size} sprite symbols referenced, all defined`);
 }
 
-async function buildHtml(assets) {
-  const html = await readFile(path.join(SRC, 'index.html'), 'utf8');
+/* `<!-- include: partials/x.html -->` is expanded in place. The sprite is the
+ * only partial today, and it exists so the English and German pages carry the
+ * same icons without either file owning a copy of 40 KB of paths. */
+async function expandIncludes(html) {
+  const re = /^[ \t]*<!--\s*include:\s*([\w./-]+)\s*-->[ \t]*$/gm;
+  const names = [...html.matchAll(re)].map((m) => m[1]);
+  let out = html;
+
+  for (const name of names) {
+    const partial = await readFile(path.join(SRC, name), 'utf8');
+    out = out.replace(
+      new RegExp(`^[ \\t]*<!--\\s*include:\\s*${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*-->[ \\t]*$`, 'm'),
+      () => partial.trimEnd()
+    );
+  }
+
+  return { html: out, count: names.length };
+}
+
+async function buildPage(page, assets) {
+  const src = await readFile(path.join(SRC, page), 'utf8');
+  const { html, count } = await expandIncludes(src);
   let out = minifyHtml(html);
+
   checkSpriteRefs(out);
 
   for (const [from, to] of Object.entries(assets)) {
     const before = out;
     out = out.replaceAll(`"${from}"`, `"${to}"`);
-    if (out === before) throw new Error(`index.html does not reference "${from}"`);
+    if (out === before) throw new Error(`${page} does not reference "${from}"`);
   }
 
   checkInlineScriptHashes(out);
-  await writeFile(path.join(DIST, 'index.html'), out, 'utf8');
-  log(`html: index.html written, ${Object.keys(assets).length} asset refs fingerprinted`);
+
+  const dest = path.join(DIST, page);
+  await mkdir(path.dirname(dest), { recursive: true });
+  await writeFile(dest, out, 'utf8');
+  log(`html: ${page} written (${count} include(s), ${Object.keys(assets).length} asset refs)`);
+}
+
+async function buildHtml(assets) {
+  for (const page of PAGES) await buildPage(page, assets);
 }
 
 async function copyStatic() {

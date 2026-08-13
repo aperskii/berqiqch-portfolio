@@ -279,6 +279,26 @@ h3 { font-size: 1.1rem; }
 
 /* --- icon buttons (theme toggle, back to top) ----------------------------- */
 
+.lang-switch {
+  flex: none;
+  padding: .38rem .6rem;
+  border: 1px solid var(--line-hi);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-head);
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--text-dim);
+  transition: color .18s var(--ease), border-color .18s var(--ease),
+              background-color .18s var(--ease);
+}
+
+.lang-switch:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
 .theme-toggle,
 .back-to-top {
   display: grid;
@@ -1027,14 +1047,26 @@ h3 { font-size: 1.1rem; }
   .site-header { position: sticky; }
   .header-inner { position: relative; }
 
-  /* The nav leaves the flow here, so the two buttons carry the right edge. */
-  .theme-toggle { margin-left: auto; }
+  /* The nav leaves the flow here, so the remaining controls carry the right
+     edge. */
+  .lang-switch { margin-left: auto; }
 }
 
 @media (max-width: 520px) {
   .field-row { grid-template-columns: 1fr; }
   .field-row .field + .field { margin-top: 1rem; }
-  .brand-text { display: none; }
+  /* Hidden from view but kept for assistive tech: display:none here would
+     leave the logo link with no accessible name, since the mark beside it is
+     decorative. Not an aria-label, which would then disagree with the visible
+     text on wider screens (WCAG 2.5.3). */
+  .brand-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .footer-inner { flex-direction: column; align-items: flex-start; }
 }
 
