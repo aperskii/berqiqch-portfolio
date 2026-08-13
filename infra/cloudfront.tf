@@ -25,7 +25,10 @@ locals {
   # depends on the Lambda, which needs this distribution's domain for CORS.
   csp = join("; ", [
     "default-src 'self'",
-    "script-src 'self'",
+    # The hash covers the theme bootstrap inlined in <head>, which has to run
+    # before the stylesheet to avoid a flash of the wrong theme. build.mjs
+    # recomputes it and fails if it drifts from this value.
+    "script-src 'self' 'sha256-lV+uM4S6WAmmwkLdBTFPUKN/Gx9GqLjBcfSqVnBte2o='",
     "style-src 'self'",
     "img-src 'self' data:",
     "font-src 'self'",

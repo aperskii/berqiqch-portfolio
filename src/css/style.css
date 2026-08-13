@@ -1,9 +1,12 @@
 /* ==========================================================================
    Yassine Berqiqch — portfolio
    Deep charcoal base, single teal accent, hairline borders.
+   Dark is the default; [data-theme="light"] on <html> swaps the palette.
    ========================================================================== */
 
 :root {
+  color-scheme: dark;
+
   --bg:            #0b0f14;
   --bg-alt:        #0e141b;
   --surface:       #131b24;
@@ -19,7 +22,16 @@
   --accent:        #2dd4bf;
   --accent-hi:     #5eead4;
   --accent-soft:   rgba(45, 212, 191, .11);
+  --accent-line:   rgba(45, 212, 191, .35);
   --danger:        #f87171;
+  --danger-soft:   rgba(248, 113, 113, .1);
+  --danger-line:   rgba(248, 113, 113, .35);
+
+  /* Text that sits on top of an --accent fill (buttons, skip link, selection). */
+  --on-accent:     #04211d;
+  --header-bg:     rgba(11, 15, 20, .82);
+  --tag-bg:        rgba(148, 163, 184, .06);
+  --glow:          rgba(45, 212, 191, .13);
 
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-head: 'Space Grotesk', 'Inter', system-ui, sans-serif;
@@ -29,6 +41,48 @@
   --shell:     1120px;
   --gutter:    clamp(1.25rem, 4vw, 2.5rem);
   --ease:      cubic-bezier(.4, 0, .2, 1);
+}
+
+/* Light theme. Every value here was measured against WCAG AA (4.5:1) on all
+   four surfaces before being committed; three differ from the first draft:
+
+   --text-faint  #6b7280 measured 4.29:1 on --bg-alt, so it went one step darker.
+   --accent      #0f766e measured 4.28:1 when set on --accent-soft over --bg-alt
+                 (a hovered tag inside a hovered card), so likewise.
+   --accent-hi   #0d9488 measured 3.25-3.74:1 in all three places it is used —
+                 as text, and as the primary button's hover fill under white
+                 text. In a light palette "hi" has to mean darker, not brighter.
+
+   Worst case across the palette is now 4.66:1. */
+:root[data-theme="light"] {
+  /* "only light" asks the UA not to re-tint this palette. Browsers with a
+     user-enabled forced-dark setting (Chrome's Auto Dark Mode flag, Android
+     WebView algorithmic darkening) override it anyway and repaint the page
+     dark — that is an accessibility preference belonging to the visitor, and
+     it applies to any light page, not just this one. */
+  color-scheme: only light;
+
+  --bg:            #f7f9fb;
+  --bg-alt:        #eef2f5;
+  --surface:       #ffffff;
+  --surface-hi:    #f1f4f7;
+  --line:          rgba(15, 23, 42, .10);
+  --line-hi:       rgba(15, 23, 42, .20);
+  --text:          #10151b;
+  --text-dim:      #4b5563;
+  --text-faint:    #646c78;
+  --accent:        #0e6f68;
+  --accent-hi:     #115e59;
+  --accent-soft:   rgba(15, 118, 110, .10);
+  --accent-line:   rgba(15, 118, 110, .32);
+  --danger:        #b91c1c;
+  --danger-soft:   rgba(185, 28, 28, .07);
+  --danger-line:   rgba(185, 28, 28, .3);
+
+  --on-accent:     #ffffff;
+  --header-bg:     rgba(247, 249, 251, .85);
+  --tag-bg:        rgba(15, 23, 42, .035);
+  --glow:          rgba(15, 118, 110, .10);
 }
 
 /* --- reset ---------------------------------------------------------------- */
@@ -62,7 +116,7 @@ ul, ol { list-style: none; padding: 0; }
 a { color: inherit; text-decoration: none; }
 button, input, textarea { font: inherit; color: inherit; }
 
-::selection { background-color: var(--accent); color: #04211d; }
+::selection { background-color: var(--accent); color: var(--on-accent); }
 
 .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 
@@ -90,7 +144,7 @@ button, input, textarea { font: inherit; color: inherit; }
   z-index: 100;
   padding: .7rem 1.25rem;
   background-color: var(--accent);
-  color: #04211d;
+  color: var(--on-accent);
   font-weight: 600;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   transition: transform .18s var(--ease);
@@ -143,7 +197,7 @@ h3 { font-size: 1.1rem; }
   position: sticky;
   top: 0;
   z-index: 50;
-  background-color: rgba(11, 15, 20, .82);
+  background-color: var(--header-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid transparent;
@@ -219,6 +273,59 @@ h3 { font-size: 1.1rem; }
 .nav-toggle[aria-expanded="true"] .icon-open { display: none; }
 .nav-toggle[aria-expanded="true"] .icon-close { display: block; }
 
+/* Keeps the nav hard right now that the theme toggle follows it; without this
+   the header's space-between would push the nav to the middle. */
+.header-inner .nav { margin-left: auto; }
+
+/* --- icon buttons (theme toggle, back to top) ----------------------------- */
+
+.theme-toggle,
+.back-to-top {
+  display: grid;
+  place-items: center;
+  flex: none;
+  padding: .5rem;
+  background-color: var(--surface);
+  border: 1px solid var(--line-hi);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  transition: color .18s var(--ease), border-color .18s var(--ease),
+              background-color .18s var(--ease), opacity .2s var(--ease),
+              transform .2s var(--ease);
+}
+
+.theme-toggle:hover,
+.back-to-top:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+.theme-toggle .icon,
+.back-to-top .icon { width: 1.25rem; height: 1.25rem; }
+
+/* Show the destination, not the current state: moon while dark (click for
+   light), sun while light. */
+.theme-toggle .icon-sun { display: none; }
+:root[data-theme="light"] .theme-toggle .icon-sun { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+
+.back-to-top {
+  position: fixed;
+  right: clamp(1rem, 4vw, 2rem);
+  bottom: clamp(1rem, 4vw, 2rem);
+  z-index: 60;
+  width: 2.75rem;
+  height: 2.75rem;
+  /* visibility keeps it out of the tab order until it is actually on screen */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+}
+
+.back-to-top.is-visible { opacity: 1; visibility: visible; transform: none; }
+
 /* --- buttons -------------------------------------------------------------- */
 
 .btn {
@@ -238,7 +345,7 @@ h3 { font-size: 1.1rem; }
 
 .btn:active { transform: translateY(1px); }
 
-.btn-primary { background-color: var(--accent); color: #04211d; font-weight: 600; }
+.btn-primary { background-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 .btn-primary:hover { background-color: var(--accent-hi); }
 
 .btn-ghost { border-color: var(--line-hi); color: var(--text); }
@@ -263,7 +370,7 @@ h3 { font-size: 1.1rem; }
   right: -10%;
   width: min(46rem, 90vw);
   aspect-ratio: 1;
-  background: radial-gradient(circle, rgba(45, 212, 191, .13), transparent 62%);
+  background: radial-gradient(circle, var(--glow), transparent 62%);
   pointer-events: none;
 }
 
@@ -385,14 +492,46 @@ h3 { font-size: 1.1rem; }
 
 .lang-list { margin-top: .9rem; }
 
-.lang-list li {
+.lang-list li { padding: .4rem 0; }
+
+.lang-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 1rem;
-  padding: .4rem 0;
   font-size: .95rem;
 }
+
+/* CEFR is a six-level scale (A1-C2). Each level maps evenly onto 0-100%, so
+   the bar is derived from the framework rather than being a self-assessed
+   number — the reason the skills section has no percentages at all.
+   The widths live here rather than in a style attribute because the site is
+   served under style-src 'self' with no 'unsafe-inline'. */
+.lang-bar {
+  height: 4px;
+  margin-top: .45rem;
+  background-color: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.lang-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--accent);
+  transform-origin: left center;
+  animation: lang-fill .7s var(--ease) both;
+}
+
+@keyframes lang-fill { from { transform: scaleX(0); } }
+
+.lang-bar-fill[data-cefr="A1"] { width: 17%; }
+.lang-bar-fill[data-cefr="A2"] { width: 33%; }
+.lang-bar-fill[data-cefr="B1"] { width: 50%; }
+.lang-bar-fill[data-cefr="B2"] { width: 67%; }
+.lang-bar-fill[data-cefr="C1"] { width: 83%; }
+.lang-bar-fill[data-cefr="C2"],
+.lang-bar-fill[data-cefr="native"] { width: 100%; }
 
 .lang-list .level {
   font-family: var(--font-head);
@@ -459,7 +598,7 @@ h3 { font-size: 1.1rem; }
   font-size: .82rem;
   line-height: 1.5;
   color: var(--text-dim);
-  background-color: rgba(148, 163, 184, .06);
+  background-color: var(--tag-bg);
   border: 1px solid var(--line);
   border-radius: 999px;
   transition: color .18s var(--ease), border-color .18s var(--ease),
@@ -768,8 +907,9 @@ h3 { font-size: 1.1rem; }
   display: none;
   width: 1rem;
   height: 1rem;
-  border: 2px solid rgba(4, 33, 29, .3);
-  border-top-color: #04211d;
+  border: 2px solid currentColor;
+  opacity: .55;
+  border-top-color: transparent;
   border-radius: 50%;
   animation: spin .6s linear infinite;
 }
@@ -790,14 +930,14 @@ h3 { font-size: 1.1rem; }
   display: block;
   color: var(--accent-hi);
   background-color: var(--accent-soft);
-  border: 1px solid rgba(45, 212, 191, .35);
+  border: 1px solid var(--accent-line);
 }
 
 .form-status.is-error {
   display: block;
   color: var(--danger);
-  background-color: rgba(248, 113, 113, .1);
-  border: 1px solid rgba(248, 113, 113, .35);
+  background-color: var(--danger-soft);
+  border: 1px solid var(--danger-line);
 }
 
 .form-note { font-size: .8rem; color: var(--text-faint); }
@@ -872,6 +1012,9 @@ h3 { font-size: 1.1rem; }
 
   .site-header { position: sticky; }
   .header-inner { position: relative; }
+
+  /* The nav leaves the flow here, so the two buttons carry the right edge. */
+  .theme-toggle { margin-left: auto; }
 }
 
 @media (max-width: 520px) {
@@ -898,7 +1041,8 @@ h3 { font-size: 1.1rem; }
 }
 
 @media print {
-  .site-header, .nav-toggle, .contact-form, .hero-social { display: none; }
+  .site-header, .nav-toggle, .theme-toggle, .back-to-top,
+  .contact-form, .hero-social { display: none; }
   body { background: #fff; color: #000; }
   .reveal { opacity: 1; transform: none; }
 }

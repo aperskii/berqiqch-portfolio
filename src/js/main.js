@@ -1,5 +1,5 @@
-/* Portfolio interactions: nav, scrollspy, scroll reveal, contact form.
-   No framework, no third-party scripts. */
+/* Portfolio interactions: theme, nav, scrollspy, scroll reveal, back to top,
+   contact form. No framework, no third-party scripts. */
 
 (function () {
   'use strict';
@@ -10,6 +10,57 @@
 
   var yearEl = document.getElementById('year');
   if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
+  /* --- theme -------------------------------------------------------------
+     The attribute is already set by the inline script in <head>; this only
+     handles switching it. Icon swapping is done in CSS off [data-theme]. */
+
+  var root = document.documentElement;
+  var themeToggle = document.getElementById('theme-toggle');
+  var themeColor = document.querySelector('meta[name="theme-color"]');
+  var THEME_COLORS = { dark: '#0b0f14', light: '#f7f9fb' };
+
+  function currentTheme() {
+    return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  }
+
+  function applyTheme(theme) {
+    root.setAttribute('data-theme', theme);
+    if (themeColor) themeColor.setAttribute('content', THEME_COLORS[theme]);
+    if (themeToggle) {
+      themeToggle.setAttribute('aria-label',
+        theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+    }
+  }
+
+  applyTheme(currentTheme());
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', function () {
+      var next = currentTheme() === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+      try {
+        localStorage.setItem('theme', next);
+      } catch (e) {
+        // Private mode or blocked storage: the choice just will not persist.
+      }
+    });
+  }
+
+  // Follow the OS while the visitor has never picked a theme themselves.
+  var systemLight = window.matchMedia('(prefers-color-scheme: light)');
+  var onSystemChange = function (e) {
+    var stored;
+    try {
+      stored = localStorage.getItem('theme');
+    } catch (err) {
+      stored = null;
+    }
+    if (stored !== 'light' && stored !== 'dark') applyTheme(e.matches ? 'light' : 'dark');
+  };
+
+  if (systemLight.addEventListener) systemLight.addEventListener('change', onSystemChange);
+  else if (systemLight.addListener) systemLight.addListener(onSystemChange);
 
   /* --- mobile nav -------------------------------------------------------- */
 
@@ -43,16 +94,31 @@
     });
   }
 
-  /* --- sticky header hairline -------------------------------------------- */
+  /* --- sticky header hairline, back to top -------------------------------
+     One passive listener for both: each only toggles a class, so there is
+     nothing to throttle. */
 
   var header = document.querySelector('.site-header');
+  var toTop = document.getElementById('back-to-top');
+  var TO_TOP_AT = 480;
 
-  if (header) {
+  if (header || toTop) {
     var onScroll = function () {
-      header.classList.toggle('is-stuck', window.scrollY > 8);
+      var y = window.scrollY;
+      if (header) header.classList.toggle('is-stuck', y > 8);
+      if (toTop) toTop.classList.toggle('is-visible', y > TO_TOP_AT);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
+  }
+
+  if (toTop) {
+    toTop.addEventListener('click', function () {
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      // Scrolling away does not move focus, so send it somewhere sensible.
+      var brand = document.querySelector('.brand');
+      if (brand) brand.focus({ preventScroll: true });
+    });
   }
 
   /* --- scroll reveal ------------------------------------------------------ */

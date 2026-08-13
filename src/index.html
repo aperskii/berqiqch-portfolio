@@ -3,6 +3,22 @@
 
 <head>
   <meta charset="UTF-8">
+  <!-- Runs before the stylesheet so the first paint is already in the right
+       theme. Deliberately inline and blocking: deferring this to main.js would
+       show a frame of dark before switching. Its sha256 is allow-listed in the
+       CSP (infra/cloudfront.tf) and checked at build time. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('theme');
+        var theme = stored === 'light' || stored === 'dark' ? stored :
+          (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>Yassine Berqiqch — Full-Stack Software Engineer</title>
@@ -85,6 +101,19 @@
     <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
       <path d="M18 6 6 18M6 6l12 12" />
     </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+      stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </symbol>
 
     <!-- Skill category marks -->
     <symbol id="i-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -137,6 +166,11 @@
           <li><a href="#contact">Contact</a></li>
         </ul>
       </nav>
+
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to light theme">
+        <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon" /></svg>
+        <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun" /></svg>
+      </button>
 
       <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav"
         aria-label="Open menu">
@@ -232,11 +266,26 @@
             </dl>
 
             <h3 class="facts-title">Languages</h3>
+            <!-- The bars restate the CEFR level, they do not add information:
+                 a six-level scale (A1-C2) mapped evenly onto 0-100%. Widths
+                 come from data-cefr in the stylesheet. -->
             <ul class="lang-list">
-              <li><span>German</span><span class="level">C1</span></li>
-              <li><span>English</span><span class="level">B2</span></li>
-              <li><span>French</span><span class="level">B2</span></li>
-              <li><span>Arabic</span><span class="level">Native</span></li>
+              <li>
+                <div class="lang-head"><span>German</span><span class="level">C1</span></div>
+                <div class="lang-bar" aria-hidden="true"><div class="lang-bar-fill" data-cefr="C1"></div></div>
+              </li>
+              <li>
+                <div class="lang-head"><span>English</span><span class="level">B2</span></div>
+                <div class="lang-bar" aria-hidden="true"><div class="lang-bar-fill" data-cefr="B2"></div></div>
+              </li>
+              <li>
+                <div class="lang-head"><span>French</span><span class="level">B2</span></div>
+                <div class="lang-bar" aria-hidden="true"><div class="lang-bar-fill" data-cefr="B2"></div></div>
+              </li>
+              <li>
+                <div class="lang-head"><span>Arabic</span><span class="level">Native</span></div>
+                <div class="lang-bar" aria-hidden="true"><div class="lang-bar-fill" data-cefr="native"></div></div>
+              </li>
             </ul>
           </div>
         </div>
@@ -606,6 +655,10 @@
       </ul>
     </div>
   </footer>
+
+  <button class="back-to-top" id="back-to-top" type="button" aria-label="Back to top">
+    <svg class="icon" aria-hidden="true"><use href="#i-arrow-up" /></svg>
+  </button>
 
   <script src="js/main.js" defer></script>
 </body>
